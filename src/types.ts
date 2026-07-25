@@ -113,6 +113,37 @@ export interface OpenViewerArgs {
   url: string;
 }
 
+export interface InspectVariablesArgs {
+  sessionId?: string;
+  /**
+   * Optional access-key paths. When provided, the response is bucketed by
+   * these keys; otherwise the runtime returns its full variable set.
+   * Each path is an ordered sequence of property names (e.g. `[["cells"]]`).
+   */
+  accessKeys?: Array<Array<string>>;
+}
+
+export interface GetTableSummaryArgs {
+  sessionId?: string;
+  /**
+   * Access keys of the table-shaped variables to summarise. Required.
+   */
+  accessKeys: Array<Array<string>>;
+  /**
+   * Query types to ask the runtime for. Default: `["summary_stats"]`.
+   */
+  queryTypes?: Array<string>;
+}
+
+export interface GetPlotArgs {
+  /**
+   * If true, decode the returned data URI and return the raw base64
+   * payload alongside the MIME type, so the caller can write the file
+   * without re-parsing the URI.
+   */
+  includeDataUri?: boolean;
+}
+
 /**
  * Union of all tool argument types, keyed by tool name.
  */
@@ -129,6 +160,9 @@ export type ToolArgsMap = {
   get_editor_context: Record<string, never>;
   open_viewer: OpenViewerArgs;
   get_plot_settings: Record<string, never>;
+  inspect_variables: InspectVariablesArgs;
+  get_table_summary: GetTableSummaryArgs;
+  get_plot: GetPlotArgs;
 };
 
 /**
@@ -268,6 +302,58 @@ export const TOOL_DEFINITIONS = [
     title: "Get Plot Settings",
     description: "Get current plot rendering dimensions for custom visualizations.",
     inputSchema: { type: "object" as const, properties: {} },
+  },
+  {
+    name: "inspect_variables",
+    title: "Inspect Variables",
+    description: "Inspect runtime variables in a Console session via the Positron Variables panel. Returns detailed metadata (display name, type, size, has_children) bucketed by access-keys. Mirrors the Positron Assistant inspectVariables tool.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        sessionId: { type: "string", description: "Session ID (defaults to foreground)" },
+        accessKeys: {
+          type: "array",
+          items: { type: "array", items: { type: "string" } },
+          description: "Optional access-key paths; omit to receive the full variable set",
+        },
+      },
+    },
+  },
+  {
+    name: "get_table_summary",
+    title: "Get Table Summary",
+    description: "Query summary statistics for tabular variables (data frames, matrices, etc.) in a Console session. Mirrors the Positron Assistant getTableSummary tool.",
+    inputSchema: {
+      type: "object" as const,
+      required: ["accessKeys"],
+      properties: {
+        sessionId: { type: "string", description: "Session ID (defaults to foreground)" },
+        accessKeys: {
+          type: "array",
+          items: { type: "array", items: { type: "string" } },
+          description: "Access keys of the tables to summarise",
+        },
+        queryTypes: {
+          type: "array",
+          items: { type: "string" },
+          description: "Query types (default: ['summary_stats'])",
+        },
+      },
+    },
+  },
+  {
+    name: "get_plot",
+    title: "Get Plot",
+    description: "Return the data URI of the currently selected Positron plot (data:<mime>;base64,...). Mirrors the Positron Assistant getPlot tool.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        includeDataUri: {
+          type: "boolean",
+          description: "Include the raw data URI in the response (default: true)",
+        },
+      },
+    },
   },
 ] as const;
 

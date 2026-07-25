@@ -11,7 +11,7 @@
  * removed without affecting the rest of the codebase.
  */
 
-import type { PositronApi } from "@posit-dev/positron";
+import type { PositronApi, RuntimeVariable, QueryTableSummaryResult } from "@posit-dev/positron";
 import type { ExecutionObserver } from "./types";
 
 // ─── Session types (underspecified in @posit-dev/positron SDK) ───
@@ -197,9 +197,74 @@ export class PositronAdapter {
     };
   }
 
-  /** Get variables defined in a session. */
-  async getSessionVariables(sessionId: string): Promise<unknown[]> {
-    return this.api.runtime.getSessionVariables(sessionId);
+  /**
+   * Get all variables defined in a session (flattened 1-D list).
+   *
+   * Although @posit-dev/positron@0.2.4's d.ts declares this as a 2-D array
+   * (bucketed by access-keys), the runtime currently flattens when no
+   * access-keys are provided. We rely on the runtime contract rather than
+   * the SDK type to stay forward-compatible.
+   */
+  async getSessionVariables(sessionId: string): Promise<Array<unknown>> {
+    type GetVarsFn = (sessionId: string) => Promise<Array<unknown>>;
+    const fn = (this.api as unknown as { runtime: { getSessionVariables: GetVarsFn } })
+      .runtime.getSessionVariables;
+    return fn(sessionId);
+  }
+
+  /**
+   * Inspect variables with optional access-key selection.
+   * Uses the Positron runtime extension API; returns a 2-D array bucketed by
+   * the access-keys argument (the same shape Positron Assistant sees).
+   */
+  async inspectVariables(
+    sessionId: string,
+    accessKeys?: Array<Array<string>>,
+  ): Promise<Array<Array<RuntimeVariable>>> {
+    type GetVarsFn = (
+      sessionId: string,
+      accessKeys?: Array<Array<string>>,
+    ) => Promise<Array<Array<RuntimeVariable>>>;
+    const fn = (this.api as unknown as { runtime: { getSessionVariables: GetVarsFn } })
+      .runtime.getSessionVariables;
+    return fn(sessionId, accessKeys);
+  }
+
+  /**
+   * Query summary statistics for tabular variables (data frames, matrices, etc.).
+   * Mirrors the Positron Assistant `getTableSummary` tool.
+   */
+  async queryTableSummaries(
+    sessionId: string,
+    accessKeys: Array<Array<string>>,
+    queryTypes: Array<string>,
+  ): Promise<Array<QueryTableSummaryResult>> {
+    type QueryFn = (
+      sessionId: string,
+      accessKeys: Array<Array<string>>,
+      queryTypes: Array<string>,
+    ) => Promise<Array<QueryTableSummaryResult>>;
+    const fn = (this.api as unknown as { runtime: { querySessionTables: QueryFn } })
+      .runtime.querySessionTables;
+    return fn(sessionId, accessKeys, queryTypes);
+  }
+
+  // ── AI features (Positron Assistant parity) ──────────────────────
+
+  /**
+   * Get the data URI of the currently selected Positron plot.
+   * Returns the URI in `data:<mime>;base64,...` form, or undefined if no plot
+   * is visible. Mirrors the Positron Assistant `getPlot` tool.
+   */
+  async getCurrentPlotUri(): Promise<string | undefined> {
+    const ai = (this.api as unknown as { ai?: { getCurrentPlotUri?: () => Promise<string | undefined> } })
+      .ai;
+    if (!ai?.getCurrentPlotUri) {
+      throw new Error(
+        "Positron API does not expose ai.getCurrentPlotUri() in this version.",
+      );
+    }
+    return ai.getCurrentPlotUri();
   }
 
   // ── Window operations ────────────────────────────────────────

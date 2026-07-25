@@ -310,7 +310,7 @@ export class ConsoleService {
       const executionPromise = adapter.executeCode({
         languageId: resolvedLanguage,
         code,
-        focus: true, // bring the console to the foreground
+        focus: false, // do not steal focus from the user's current editor/panel
         allowIncomplete,
         sessionId: sessionId || undefined,
         observer,
@@ -399,6 +399,131 @@ export class ConsoleService {
         null,
         2
       );
+    }
+  }
+
+  /**
+   * Inspect variables in a Console session via the Positron Variables panel
+   * extension API. Returns the bucketed 2-D array of `RuntimeVariable`s
+   * (display name, type, size, has_children, ...).
+   */
+  async inspectVariables(
+    args: ToolArgsMap["inspect_variables"]
+  ): Promise<string> {
+    const adapter = this.requireAdapter();
+    let targetSessionId = args.sessionId;
+    if (!targetSessionId) {
+      const fg = await adapter.getForegroundSession();
+      if (!fg) {
+        return JSON.stringify(
+          { error: "No active console session" },
+          null,
+          2
+        );
+      }
+      targetSessionId = PositronAdapter.getSessionId(fg);
+    }
+
+    try {
+      const variables = await adapter.inspectVariables(
+        targetSessionId,
+        args.accessKeys,
+      );
+      return JSON.stringify(
+        { sessionId: targetSessionId, variables },
+        null,
+        2
+      );
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      return JSON.stringify(
+        { sessionId: targetSessionId, error: message },
+        null,
+        2
+      );
+    }
+  }
+
+  /**
+   * Query summary statistics for tabular variables.
+   * Mirrors Positron Assistant's `getTableSummary` tool.
+   */
+  async getTableSummary(
+    args: ToolArgsMap["get_table_summary"]
+  ): Promise<string> {
+    const adapter = this.requireAdapter();
+    let targetSessionId = args.sessionId;
+    if (!targetSessionId) {
+      const fg = await adapter.getForegroundSession();
+      if (!fg) {
+        return JSON.stringify(
+          { error: "No active console session" },
+          null,
+          2
+        );
+      }
+      targetSessionId = PositronAdapter.getSessionId(fg);
+    }
+
+    const accessKeys = args.accessKeys;
+    if (!Array.isArray(accessKeys) || accessKeys.length === 0) {
+      return JSON.stringify(
+        { sessionId: targetSessionId, error: "accessKeys is required" },
+        null,
+        2
+      );
+    }
+
+    const queryTypes = args.queryTypes ?? ["summary_stats"];
+
+    try {
+      const summaries = await adapter.queryTableSummaries(
+        targetSessionId,
+        accessKeys,
+        queryTypes,
+      );
+      return JSON.stringify(
+        { sessionId: targetSessionId, queryTypes, summaries },
+        null,
+        2
+      );
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      return JSON.stringify(
+        { sessionId: targetSessionId, error: message },
+        null,
+        2
+      );
+    }
+  }
+
+  /**
+   * Get the data URI of the currently selected Positron plot.
+   * Returns the URI in `data:<mime>;base64,...` form, or `{ plot: null }` if
+   * no plot is visible.
+   */
+  async getPlot(
+    args: ToolArgsMap["get_plot"]
+  ): Promise<string> {
+    const adapter = this.requireAdapter();
+
+    try {
+      const uri = await adapter.getCurrentPlotUri();
+      if (!uri) {
+        return JSON.stringify({ plot: null }, null, 2);
+      }
+      const includeDataUri = args.includeDataUri !== false;
+      const match = uri.match(/^data:([^;]+);base64,(.+)$/);
+      const response: Record<string, unknown> = { mimeType: match?.[1] ?? null };
+      if (includeDataUri) {
+        response.dataUri = uri;
+      } else if (match) {
+        response.base64Length = match[2].length;
+      }
+      return JSON.stringify({ plot: response }, null, 2);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      return JSON.stringify({ error: message }, null, 2);
     }
   }
 
@@ -668,6 +793,9 @@ export class ConsoleService {
       get_editor_context: () => this.getEditorContext(),
       open_viewer: (a) => this.openViewer(a as unknown as ToolArgsMap["open_viewer"]),
       get_plot_settings: () => this.getPlotSettings(),
+      inspect_variables: (a) => this.inspectVariables(a as unknown as ToolArgsMap["inspect_variables"]),
+      get_table_summary: (a) => this.getTableSummary(a as unknown as ToolArgsMap["get_table_summary"]),
+      get_plot: (a) => this.getPlot(a as unknown as ToolArgsMap["get_plot"]),
     };
 
     const handler = dispatchMap[toolName];

@@ -290,8 +290,9 @@ export class McpConsoleServer {
       if (nodeErr.code === "EADDRINUSE") {
         throw new Error(
           `Port ${portToTry} is already in use. ` +
-            `Set positronConsoleMcp.port to 0 for an OS-assigned free port, ` +
-            `or choose a different port in VS Code Settings.`
+            `Set positronConsoleMcp.port to a different fixed port (e.g. 45590) ` +
+            `and update the url in your MCP client config (e.g. .omp/agent/mcp.json) accordingly. ` +
+            `Leave at 0 only if you want a random OS-assigned port on every reload.`
         );
       }
       throw err;

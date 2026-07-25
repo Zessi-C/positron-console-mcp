@@ -60,6 +60,25 @@ export const OpenViewerArgsSchema = z.object({
   url: z.string().min(1, "url is required"),
 });
 
+// ── Inspect Variables ────────────────────────────────────────────
+const AccessKeySchema = z.array(z.string());
+export const InspectVariablesArgsSchema = z.object({
+  sessionId: z.string().optional(),
+  accessKeys: z.array(AccessKeySchema).optional(),
+});
+
+// ── Get Table Summary ─────────────────────────────────────────────
+export const GetTableSummaryArgsSchema = z.object({
+  sessionId: z.string().optional(),
+  accessKeys: z.array(AccessKeySchema).min(1, "accessKeys must contain at least one path"),
+  queryTypes: z.array(z.string()).optional(),
+});
+
+// ── Get Plot ──────────────────────────────────────────────────────
+export const GetPlotArgsSchema = z.object({
+  includeDataUri: z.boolean().optional(),
+});
+
 // ── Tool Schemas Map ──────────────────────────────────────────────
 // Tools with no arguments use z.object({}).passthrough() to accept empty args
 // while still providing validation that args is an object.
@@ -79,6 +98,9 @@ export const TOOL_SCHEMAS: Record<string, z.ZodType> = {
   get_editor_context: EmptyArgsSchema,
   open_viewer: OpenViewerArgsSchema,
   get_plot_settings: EmptyArgsSchema,
+  inspect_variables: InspectVariablesArgsSchema,
+  get_table_summary: GetTableSummaryArgsSchema,
+  get_plot: GetPlotArgsSchema,
 };
 
 /**
