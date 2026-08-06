@@ -29,8 +29,14 @@ The full 12 original tools (`execute_code`, `list_consoles`, `get_active_console
   `45589` instead of `0`. The default `0` made the OS assign a new
   port on every Positron reload, which broke any client config that
   hard-coded a URL.
-- **No focus stealing** — `execute_code` no longer pulls the Console
-  panel to the foreground (`focus: false`).
+- **No keyboard focus stealing** — `execute_code` passes `focus: false`
+  (`positron-console-mcp`'s `executeCode` and Positron's Assistant use the
+  same API contract). **Caveat:** on Positron 2026.07+, producing console
+  output still swaps the active tab in a shared Console/Plots container to
+  the Console panel — this is [Positron bug #13394](https://github.com/posit-dev/positron/issues/13394)
+  (client-side, open), not this extension. Keyboard focus is preserved;
+  only the visible tab flips. Any `executeCode` caller (including Positron's
+  own Assistant) is affected.
 - **`showStatus` / `restart` rewritten** — they write a multi-line
   diagnostic to a dedicated `Positron Console MCP` output channel and
   show a one-line toast with an action button. The original used
