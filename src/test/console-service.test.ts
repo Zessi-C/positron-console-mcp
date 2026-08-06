@@ -209,8 +209,10 @@ describe("ConsoleService", () => {
       "",
       true,
       false,
-      "sess-1",
-      expect.any(Object)
+      "interactive",
+      "continue",
+      expect.any(Object),
+      "sess-1"
     );
   });
 
@@ -299,7 +301,8 @@ describe("ConsoleService", () => {
         _code: string,
         _focus: boolean,
         _allowIncomplete: boolean,
-        _sessionId: string | undefined,
+        _mode: string,
+        _errorBehavior: string,
         observer: {
           onStarted?: () => void;
           onOutput?: (msg: string) => void;
@@ -339,7 +342,8 @@ describe("ConsoleService", () => {
         _c: string,
         _f: boolean,
         _a: boolean,
-        _s: string | undefined,
+        _mode: string,
+        _errorBehavior: string,
         observer: { onError?: (e: string) => void; onFinished?: () => void }
       ) => {
         observer.onError?.("SyntaxError: invalid syntax");
@@ -690,7 +694,20 @@ describe("ConsoleService", () => {
     // Simulate executeCode calling onOutput with a huge string
     const bigString = "x".repeat(600_000); // > 500KB limit
     api.runtime.executeCode.mockImplementation(
-      (_lang: any, _code: any, _focus: any, _incomplete: any, _sid: any, observer: any) => {
+      (
+        _lang: string,
+        _code: string,
+        _focus: boolean,
+        _incomplete: boolean,
+        _mode: string,
+        _errorBehavior: string,
+        observer: {
+          onStarted: () => void;
+          onOutput: (msg: string) => void;
+          onCompleted: (res: Record<string, unknown>) => void;
+          onFinished: () => void;
+        }
+      ) => {
         observer.onStarted();
         observer.onOutput(bigString);
         observer.onOutput("small output");
@@ -725,7 +742,20 @@ describe("ConsoleService", () => {
 
     // Simulate executeCode generating 250 output entries (limit is 200)
     api.runtime.executeCode.mockImplementation(
-      (_lang: any, _code: any, _focus: any, _incomplete: any, _sid: any, observer: any) => {
+      (
+        _lang: string,
+        _code: string,
+        _focus: boolean,
+        _incomplete: boolean,
+        _mode: string,
+        _errorBehavior: string,
+        observer: {
+          onStarted: () => void;
+          onOutput: (msg: string) => void;
+          onCompleted: (res: Record<string, unknown>) => void;
+          onFinished: () => void;
+        }
+      ) => {
         observer.onStarted();
         for (let i = 0; i < 250; i++) {
           observer.onOutput(`output ${i}`);

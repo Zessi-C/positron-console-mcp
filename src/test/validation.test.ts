@@ -27,8 +27,8 @@ describe("validation", () => {
     }
   });
 
-  it("should export exactly 12 tool schemas", () => {
-    expect(Object.keys(TOOL_SCHEMAS)).toHaveLength(12);
+  it("should export exactly 15 tool schemas", () => {
+    expect(Object.keys(TOOL_SCHEMAS)).toHaveLength(15);
   });
 
   // ── Empty-args tools (no required params) ───────────────────────

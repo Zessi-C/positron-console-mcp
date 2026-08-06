@@ -124,14 +124,22 @@ export class PositronAdapter {
 
   // ── Session helpers ──────────────────────────────────────────
 
-  /** Extract SessionMetadata from a runtime session object. */
+  /**
+   * Extract SessionMetadata from a runtime session object.
+   *
+   * Positron 2026.07 moved languageId/runtimeName/runtimeId from
+   * `session.metadata` onto `session.runtimeMetadata`. Read both, preferring
+   * runtimeMetadata so the fields survive the API change.
+   */
   static getSessionMetadata(session: unknown): SessionMetadata {
-    const meta = (session as { metadata?: Record<string, unknown> }).metadata ?? {};
+    const sessionObj = session as { metadata?: Record<string, unknown>; runtimeMetadata?: Record<string, unknown> };
+    const meta = sessionObj.metadata ?? {};
+    const rt = sessionObj.runtimeMetadata ?? {};
     return {
       sessionId: String(meta.sessionId ?? ""),
-      languageId: String(meta.languageId ?? ""),
-      runtimeName: String(meta.runtimeName ?? ""),
-      runtimeId: String(meta.runtimeId ?? ""),
+      languageId: String(rt.languageId ?? meta.languageId ?? ""),
+      runtimeName: String(rt.runtimeName ?? meta.runtimeName ?? ""),
+      runtimeId: String(rt.runtimeId ?? meta.runtimeId ?? ""),
     };
   }
 
@@ -161,18 +169,26 @@ export class PositronAdapter {
    * Execute code in a runtime session.
    * The SDK type signature is incomplete; we cast through a well-defined
    * local interface for safety.
+   *
+   * Positron 2026.07 inserted `mode` and `errorBehavior` before `observer`
+   * and `sessionId`. If we pass the old 6-arg shape, sessionId lands in the
+   * `mode` slot and observer in the `errorBehavior` slot, so output capture
+   * silently breaks. Pass the full 8-arg signature with explicit mode
+   * ("interactive") and errorBehavior ("continue").
    */
   async executeCode(options: ExecuteCodeOptions): Promise<unknown> {
-    // The runtime accepts focus + allowIncomplete + sessionId + observer
-    // beyond what the SDK types declare. Cast through unknown to provide
-    // the full options object.
+    // The runtime accepts focus + allowIncomplete + mode + errorBehavior +
+    // observer + sessionId beyond what the SDK types declare. Cast through
+    // unknown to provide the full options object.
     type ExecuteCodeFn = (
       languageId: string,
       code: string,
       focus: boolean,
       allowIncomplete: boolean,
-      sessionId: string | undefined,
+      mode: string,
+      errorBehavior: string,
       observer: ExecutionObserver,
+      sessionId: string | undefined,
     ) => Promise<unknown>;
 
     const fn = this.api.runtime.executeCode as unknown as ExecuteCodeFn;
@@ -181,8 +197,10 @@ export class PositronAdapter {
       options.code,
       options.focus,
       options.allowIncomplete,
-      options.sessionId,
+      "interactive",
+      "continue",
       options.observer,
+      options.sessionId,
     );
   }
 

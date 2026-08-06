@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { McpConsoleServer } from "../server";
+import { TOOL_SCHEMAS } from "../validation";
 
 /**
  * HTTP-level integration tests for the MCP server.
@@ -141,7 +142,7 @@ describe("McpConsoleServer (HTTP integration)", () => {
       expect(body.result).toBeDefined();
       const tools = (body.result as { tools: unknown[] }).tools;
       expect(Array.isArray(tools)).toBe(true);
-      expect(tools.length).toBe(12);
+      expect(tools.length).toBe(Object.keys(TOOL_SCHEMAS).length);
       for (const tool of tools) {
         const t = tool as Record<string, unknown>;
         expect(t.name).toBeDefined();
